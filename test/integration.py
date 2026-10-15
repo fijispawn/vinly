@@ -44,6 +44,21 @@ try:
     assert request('alice','/diary')['entries'][0]['diaryNote']['text']=='Личная заметка'
     request('alice','/diary/wines/'+manual_id,'DELETE')
     assert request('alice','/diary')['entries']==[]
+    disposable=request('host','/games','POST',{'title':'Временное лобби'})['game']['code']
+    request('alice','/games/'+disposable+'/join','POST',{'name':'Алиса','avatar':3,'frame':'star'})
+    try:
+        request('alice','/games/'+disposable,'DELETE')
+        raise AssertionError('Player deleted the lobby')
+    except AssertionError as e:
+        if '403' not in str(e): raise
+    request('host','/games/'+disposable,'DELETE')
+    assert disposable not in [game['code'] for game in request('host','/games')['games']]
+    assert disposable not in [game['code'] for game in request('alice','/games')['games']]
+    try:
+        request('public','/games/'+disposable+'/public')
+        raise AssertionError('Deleted lobby is still accessible')
+    except AssertionError as e:
+        if '404' not in str(e): raise
     code=request('host','/games','POST',{'title':'Тестовый вечер','minPlayers':2})['game']['code']
     request('alice','/games/'+code+'/join','POST',{'name':'Алиса','avatar':3,'frame':'star','frameColor':'olive'})
     assert request('public','/games/'+code+'/public')['game']['players'][0]['frame']=='star'

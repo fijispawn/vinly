@@ -1,7 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {makeBracket,scoreFor,nominations,diaryFor} from '../logic.js';
+import {makeBracket,scoreFor,nominations,diaryFor,publicGame} from '../logic.js';
 import {parseWineHtml,parseWineMarkdown,partialSimpleWine} from '../scraper.js';
+
+test('ведущий получает сохранённый статус подтверждения номеров',()=>{
+ const host={id:'host'};
+ const game={id:'game',code:'ABC123',hostId:host.id,phase:'setup',minPlayers:1,numbersConfirmed:false,players:[],wines:[{id:'a',number:1},{id:'b',number:2}],matches:[],currentMatchId:null,events:[]};
+ assert.equal(publicGame(game,host).numbersConfirmed,false);
+ game.numbersConfirmed=true;
+ assert.equal(publicGame(game,host).numbersConfirmed,true);
+ assert.equal(publicGame(game,null).numbersConfirmed,undefined);
+});
 
 test('пять бутылок дают предварительную пару и два полуфинала',()=>{
  const result=makeBracket(Array.from({length:5},(_,i)=>({id:String(i)})));
