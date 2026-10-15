@@ -3,5 +3,5 @@
 release_files=(
   Dockerfile .dockerignore package.json package-lock.json
   app components public
-  backend.js logic.js scraper.js clipboard-image.js world-map.js wine-regions.js
+  backend.js logic.js scraper.js clipboard-image.js world-map.js wine-regions.js diary-filters.js
 )
