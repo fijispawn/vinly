@@ -1,0 +1,8 @@
+[Unit]
+Description=Renew wine-brackets IP certificate
+After=docker.service nginx.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/wine-brackets/deploy/renew-cert.sh
