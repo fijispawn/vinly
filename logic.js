@@ -70,16 +70,22 @@ export function nominations(g){
   }
   return out;
 }
+export const revealOrder=g=>[...g.wines.filter(w=>w.id!==g.championId).sort((a,b)=>a.number-b.number),...g.wines.filter(w=>w.id===g.championId)];
+export const revealTotal=g=>g.wines.length+(g.showRegionMap===false?1:2);
+export const revealStep=g=>g.revealStep??revealTotal(g);
 export function publicGame(g,user){
   const isHost=user?.id===g.hostId,player=g.players.find(p=>p.userId===user?.id),revealed=g.phase==='revealed';
   const current=currentMatch(g);
+  const step=revealed?revealStep(g):0,order=revealed?revealOrder(g):[];
+  const visibleIds=new Set(order.slice(0,step).map(w=>w.id));
   return {
-    id:g.id,code:g.code,title:g.title,theme:g.theme,description:g.description,priceLimit:g.priceLimit,minPlayers:g.minPlayers||1,phase:g.phase,createdAt:g.createdAt,
+    id:g.id,code:g.code,title:g.title,theme:g.theme,description:g.description,priceLimit:g.priceLimit,minPlayers:g.minPlayers||1,showRegionMap:g.showRegionMap!==false,phase:g.phase,createdAt:g.createdAt,
+    revealStep:revealed?step:undefined,revealTotal:revealed?revealTotal(g):undefined,revealNumber:revealed&&step>=1&&step<=g.wines.length?order[step-1].number:null,
     role:isHost?'host':player?'player':'spectator',numbersConfirmed:isHost?!!g.numbersConfirmed:undefined,players:g.players.map(p=>({userId:p.userId,name:p.name,avatar:p.avatar??0,frame:p.frame||'circle',frameColor:p.frameColor||'burgundy',absent:p.absent,online:!!p.lastSeen&&Date.now()-new Date(p.lastSeen).getTime()<20000,answered:!!current&&(!!current.answers[p.userId]||current.forcedSkips.includes(p.userId)),tieAnswered:!!current&&(!!current.tieAnswers[p.userId]||current.tieSkips.includes(p.userId))})),
-    wines:isHost||revealed?g.wines.map(w=>({...w})):g.wines.map(w=>({id:w.id,number:w.number})),
+    wines:g.wines.map(w=>isHost||visibleIds.has(w.id)?{...w}:{id:w.id,number:w.number}),
     matches:g.matches.map(m=>({id:m.id,round:m.round,position:m.position,a:m.a?g.wines.find(w=>w.id===m.a)?.number:null,b:m.b?g.wines.find(w=>w.id===m.b)?.number:null,status:m.status,score:m.status==='result'||revealed?numberScore(g,m.score):null,tieScore:m.status==='result'||revealed?numberScore(g,m.tieScore):null,winner:m.winner?g.wines.find(w=>w.id===m.winner)?.number:null,sourceA:m.sourceA,sourceB:m.sourceB,answer:player?m.answers[user.id]||null:null,tieAnswer:player?m.tieAnswers[user.id]||null:null,skipped:player?m.forcedSkips.includes(user.id):false})),
-    currentMatchId:g.currentMatchId,champion:revealed?g.wines.find(w=>w.id===g.championId)?.number:null,nominations:revealed?nominations(g):null,
-    seedOrder:revealed?g.seedOrder.map(id=>g.wines.find(w=>w.id===id)?.number):undefined,
+    currentMatchId:g.currentMatchId,champion:revealed&&step>=g.wines.length?g.wines.find(w=>w.id===g.championId)?.number:null,nominations:revealed&&step>=revealTotal(g)?nominations(g):null,
+    seedOrder:revealed&&step>=revealTotal(g)?g.seedOrder.map(id=>g.wines.find(w=>w.id===id)?.number):undefined,
     events:isHost?g.events.slice(-25):undefined
   };
 }
@@ -89,7 +95,7 @@ export function diaryFor(state,userId){
   for(const item of state.manualWines?.[userId]||[]){
     entries.push({id:'manual:'+item.id,key:'manual:'+item.id,origin:'manual',date:item.addedAt,wine:item.wine,gameId:null,gameTitle:'Добавлено самостоятельно',history:[],firstRatings:null,champion:false,nominations:[],tastings:[]});
   }
-  for(const g of state.games.filter(g=>g.phase==='revealed')){
+  for(const g of state.games.filter(g=>g.phase==='revealed'&&revealStep(g)>=revealTotal(g))){
     const matchList=g.matches.filter(m=>m.closedAt&&m.answers[userId]&&!m.answers[userId].skip);
     const ids=[...new Set(matchList.flatMap(m=>[m.a,m.b]))];
     for(const wineId of ids){
@@ -106,5 +112,5 @@ export function diaryFor(state,userId){
     prior.champion ||= entry.champion;prior.nominations=[...new Set([...prior.nominations,...entry.nominations])];
     prior.date=entry.date;prior.wine=entry.wine;prior.gameId=entry.gameId;prior.gameTitle=entry.gameTitle;prior.firstRatings=entry.firstRatings;
   }
-  return [...grouped.values()].map(e=>({...e,diaryNote:state.diaryNotes[userId]?.[e.id]||{text:'',again:false,buy:false}})).sort((a,b)=>b.date.localeCompare(a.date));
+  return [...grouped.values()].filter(e=>!state.hiddenDiaryWines?.[userId]?.includes(e.key)).map(e=>({...e,diaryNote:state.diaryNotes[userId]?.[e.id]||{text:'',again:false,buy:false}})).sort((a,b)=>b.date.localeCompare(a.date));
 }

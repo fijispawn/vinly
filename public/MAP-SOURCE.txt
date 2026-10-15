@@ -1,0 +1,16 @@
+Country boundaries: Natural Earth 1:50m Admin 0, via topojson/world-atlas v2.
+https://github.com/topojson/world-atlas
+https://www.naturalearthdata.com/about/terms-of-use/
+
+Italian regional boundaries: geoBoundaries gbOpen ITA ADM2, simplified GeoJSON,
+from release 9469f09. Adapted by simplifying coordinates for this app.
+https://www.geoboundaries.org/
+https://github.com/wmgeolab/geoBoundaries
+License: CC BY 4.0, https://creativecommons.org/licenses/by/4.0/
+
+Selected first-level regional boundaries for Spain, Russia, Argentina, Chile,
+United States, South Africa, Georgia, Austria, and New Zealand: geoBoundaries
+gbOpen ADM1, simplified GeoJSON from release 9469f09. Rings reordered for D3.
+https://www.geoboundaries.org/
+https://github.com/wmgeolab/geoBoundaries
+License: CC BY 4.0, https://creativecommons.org/licenses/by/4.0/

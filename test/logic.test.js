@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {makeBracket,scoreFor,nominations,diaryFor,publicGame} from '../logic.js';
+import {makeBracket,scoreFor,nominations,diaryFor,publicGame,revealStep,revealTotal} from '../logic.js';
 import {parseWineHtml,parseWineMarkdown,partialSimpleWine} from '../scraper.js';
 
 test('ведущий получает сохранённый статус подтверждения номеров',()=>{
@@ -10,6 +10,27 @@ test('ведущий получает сохранённый статус под
  game.numbersConfirmed=true;
  assert.equal(publicGame(game,host).numbersConfirmed,true);
  assert.equal(publicGame(game,null).numbersConfirmed,undefined);
+});
+
+test('бутылки открываются зрителям по одному, чемпион последним',()=>{
+ const game={id:'game',code:'ABC123',hostId:'host',phase:'revealed',title:'Вечер',players:[],wines:[{id:'a',number:1,name:'Первое'},{id:'b',number:2,name:'Чемпион'}],matches:[],seedOrder:[],championId:'b',currentMatchId:null,revealStep:0};
+ assert.deepEqual(publicGame(game,null).wines.map(w=>w.name),[undefined,undefined]);
+ game.revealStep=1;
+ assert.deepEqual(publicGame(game,null).wines.map(w=>w.name),['Первое',undefined]);
+ assert.equal(publicGame(game,null).champion,null);
+ game.revealStep=2;
+ assert.equal(publicGame(game,null).champion,2);
+});
+
+test('выключенная карта пропускает этап регионов и открывает итоги после вин',()=>{
+ const game={id:'game',code:'ABC123',hostId:'host',phase:'revealed',title:'Вечер',showRegionMap:false,players:[],wines:[{id:'a',number:1,name:'Первое'},{id:'b',number:2,name:'Чемпион'}],matches:[],seedOrder:[],championId:'b',currentMatchId:null,revealStep:2};
+ assert.equal(revealTotal(game),3);
+ assert.equal(publicGame(game,null).showRegionMap,false);
+ assert.equal(publicGame(game,null).nominations,null);
+ game.revealStep=3;
+ assert.ok(publicGame(game,null).nominations);
+ assert.equal(revealStep({...game,revealStep:undefined}),3);
+ assert.equal(revealTotal({...game,showRegionMap:undefined}),4);
 });
 
 test('пять бутылок дают предварительную пару и два полуфинала',()=>{
@@ -91,4 +112,7 @@ test('одинаковое надёжно распознанное вино об
  const grouped=entries.find(e=>e.wine.name==='Chardonnay');
  assert.equal(grouped.tastings.length,2);
  assert.equal(grouped.history.length,2);
+ const hidden=diaryFor({games:[game(1),game(2)],diaryNotes:{},hiddenDiaryWines:{u:[grouped.key]}},'u');
+ assert.equal(hidden.some(e=>e.wine.name==='Chardonnay'),false);
+ assert.equal(hidden.some(e=>e.wine.name==='Другое'),true);
 });
