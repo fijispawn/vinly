@@ -17,3 +17,8 @@ test('картинка берётся из данных товара, если �
 test('посторонний адрес картинки не принимается',()=>{
  assert.equal(imageFromCopiedPage('',`<img alt="Вино Loco Cimbali Kokur" src="https://example.com/wine.png">`,page),'');
 });
+
+test('адрес картинки с CDN SimpleWine извлекается из текста',()=>{
+ const image='https://static.simplewine.ru/upload/iblock/e9a/e9acde727fff11053b6959789fff111c.png@x1208?fmt=webp';
+ assert.equal(imageFromCopiedPage(`Карточка вина\n${image}`,'',page),image);
+});

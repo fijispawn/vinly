@@ -1,7 +1,7 @@
 function imageUrl(value, pageUrl){
  try{
   const url=new URL(value.replaceAll('&amp;','&'),pageUrl);
-  if(url.protocol!=='https:'||!['simplewine.ru','www.simplewine.ru'].includes(url.hostname)||!/^\/upload\/(?:iblock|resize_cache)\//.test(url.pathname))return '';
+  if(url.protocol!=='https:'||!['simplewine.ru','www.simplewine.ru','static.simplewine.ru'].includes(url.hostname)||!/^\/upload\/(?:iblock|resize_cache)\//.test(url.pathname))return '';
   return url.href;
  }catch{return ''}
 }
@@ -28,5 +28,5 @@ export function imageFromCopiedPage(text,html,pageUrl){
    if(image)return image;
   }
  }
- return imageUrl(text.match(/https:\/\/(?:www\.)?simplewine\.ru\/upload\/(?:iblock|resize_cache)\/[^\s"'<>]+/i)?.[0]||'',page.href);
+ return imageUrl(text.match(/https:\/\/(?:(?:www|static)\.)?simplewine\.ru\/upload\/(?:iblock|resize_cache)\/[^\s"'<>]+/i)?.[0]||'',page.href);
 }
