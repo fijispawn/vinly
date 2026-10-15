@@ -7,6 +7,23 @@ const decode=s=>String(s||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;|&#160;/gi,
 const blocked=ip=>{if(net.isIP(ip)===4){const p=ip.split('.').map(Number);return p[0]===0||p[0]===10||p[0]===127||p[0]>=224||p[0]===169&&p[1]===254||p[0]===172&&p[1]>=16&&p[1]<=31||p[0]===192&&p[1]===168||p[0]===100&&p[1]>=64&&p[1]<=127||p[0]===192&&p[1]===0||p[0]===198&&p[1]===18};const s=ip.toLowerCase();return s==='::1'||s==='::'||s.startsWith('fc')||s.startsWith('fd')||s.startsWith('fe8')||s.startsWith('fe9')||s.startsWith('fea')||s.startsWith('feb')||s.startsWith('::ffff:')};
 async function safeAddress(url){const u=new URL(url);if(!['https:','http:'].includes(u.protocol)||u.username||u.password||u.port&&!['80','443'].includes(u.port))throw Error('Нужна обычная ссылка http или https');if(net.isIP(u.hostname))throw Error('IP-адреса недопустимы');const addresses=await dns.lookup(u.hostname,{all:true});if(!addresses.length||addresses.some(x=>blocked(x.address)))throw Error('Адрес источника недоступен');return {u,address:addresses[0]};}
 async function getPage(url,redirects=0){if(redirects>3)throw Error('Слишком много перенаправлений');const {u,address}=await safeAddress(url);return await new Promise((resolve,reject)=>{const mod=u.protocol==='https:'?https:http;const req=mod.get(u,{lookup:(_host,options,cb)=>options.all?cb(null,[address]):cb(null,address.address,address.family),headers:{'user-agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36','accept':'text/html,application/xhtml+xml','accept-language':'ru-RU,ru;q=0.9'},timeout:12000},res=>{if(res.statusCode>=300&&res.statusCode<400&&res.headers.location){res.resume();resolve(getPage(new URL(res.headers.location,u).href,redirects+1));return}if(res.statusCode!==200){res.resume();reject(Error('Источник ответил кодом '+res.statusCode));return}if(!String(res.headers['content-type']||'').includes('text/html')){res.resume();reject(Error('Источник не является HTML-страницей'));return}let chunks=[],size=0;res.on('data',chunk=>{size+=chunk.length;if(size>3_000_000){req.destroy(Error('Страница слишком большая'));return}chunks.push(chunk)});res.on('end',()=>resolve({html:Buffer.concat(chunks).toString('utf8'),url:u.href}))});req.on('timeout',()=>req.destroy(Error('Источник не ответил вовремя')));req.on('error',reject)});}
+async function getReaderText(url){
+  const {u}=await safeAddress(url);
+  const addresses=await dns.lookup(u.hostname,{all:true});
+  const address=addresses.find(x=>x.family===4&&!blocked(x.address))||addresses.find(x=>!blocked(x.address));
+  if(!address)throw Error('Адрес текстового сервиса недоступен');
+  return new Promise((resolve,reject)=>{
+    const req=https.get(u,{lookup:(_host,options,cb)=>options.all?cb(null,[address]):cb(null,address.address,address.family),headers:{accept:'text/plain','x-locale':'ru-RU'},timeout:45000},res=>{
+      if(res.statusCode!==200){res.resume();reject(Error('Текстовый сервис ответил кодом '+res.statusCode));return}
+      const chunks=[];let size=0;
+      res.on('data',chunk=>{size+=chunk.length;if(size>3_000_000){req.destroy(Error('Ответ текстового сервиса слишком большой'));return}chunks.push(chunk)});
+      res.on('end',()=>resolve(Buffer.concat(chunks).toString('utf8')));
+      res.on('error',reject);
+    });
+    req.on('timeout',()=>req.destroy(Error('Текстовый сервис не ответил вовремя')));
+    req.on('error',reject);
+  });
+}
 const meta=(html,key)=>{const tags=html.match(/<meta\b[^>]*>/gi)||[];for(const tag of tags){if(new RegExp('(?:property|name)=["\']'+key.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'["\']','i').test(tag))return decode(tag.match(/content=["']([^"']*)["']/i)?.[1])}return ''};
 const item=(obj,key)=>{if(!obj||typeof obj!=='object')return undefined;if(obj[key]!==undefined)return obj[key];if(Array.isArray(obj)){for(const x of obj){const r=item(x,key);if(r!==undefined)return r}}for(const v of Object.values(obj)){if(v&&typeof v==='object'){const r=item(v,key);if(r!==undefined)return r}}};
 function ldProducts(html){const blocks=[...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];const all=[];for(const b of blocks){try{const data=JSON.parse(b[1]);const find=x=>{if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(find);return}if(String(x['@type']||'').toLowerCase().includes('product'))all.push(x);Object.values(x).forEach(v=>{if(v&&typeof v==='object')find(v)})};find(data)}catch{}}return all[0]||{}}
@@ -24,7 +41,7 @@ export function parseWineHtml(html,url){const p=ldProducts(html),title=decode(p.
   return wine;
 }
 export function parseWineMarkdown(markdown,url){
-  const lines=markdown.split(/\r?\n/).map(x=>x.trim()),title=lines.find(x=>/^# Вино\s+/.test(x))?.replace(/^#\s*Вино\s+/,''),name=title?`Вино ${title}`:'';
+  const lines=markdown.split(/\r?\n/).map(x=>x.trim()),title=lines.find(x=>/^#?\s*Вино\s+.+\b(?:19|20)\d{2}\b/.test(x))?.replace(/^#?\s*Вино\s+/,''),name=title?`Вино ${title}`:'';
   if(!name)throw Error('Не удалось распознать карточку вина');
   const following=label=>{const i=lines.findIndex(x=>x===label||x===label+':');if(i<0)return '';for(let j=i+1;j<Math.min(i+7,lines.length);j++){const s=lines[j];if(!s)continue;return s.replace(/\[([^\]]+)\]\([^)]*\)/g,'$1').replace(/,$/,'').trim()}return ''};
   const countryRegion=following('Страна, регион').split(/,\s*/).filter(Boolean);
@@ -35,6 +52,12 @@ export function parseWineMarkdown(markdown,url){
   const rating=markdown.match(/\[(\d(?:[.,]\d)?)\s+(\d+)\s+оценок/);
   const description=following('Дегустационные характеристики');
   return {sourceUrl:url,sourceName:'simplewine.ru',sourceDate:new Date().toISOString().slice(0,10),name,producer:following('Производитель'),vintage:following('Год')||name.match(/\b(?:19|20)\d{2}\b/)?.[0]||'',image,price,currency:price?'RUB':'',country:countryRegion[0]||'',region:countryRegion[1]||'',grape:following('Виноград'),style:following('Вино'),alcohol:following('Крепость'),volume:following('Объем'),sugar:following('Сахар'),productAcidity:'',externalRating:rating?.[1]||'',externalRatingSource:rating?'SimpleWine':'',externalRatingScale:rating?'5':'',externalRatingCount:rating?.[2]||'',description,hostNote:''};
+}
+export async function scrapeWineFromText(url,text){
+  let u;try{u=new URL(url)}catch{throw Error('Укажите ссылку на карточку SimpleWine')}
+  if(!['http:','https:'].includes(u.protocol)||u.username||u.password||!(u.hostname==='simplewine.ru'||u.hostname.endsWith('.simplewine.ru')))throw Error('Вставка текста сейчас поддерживается для SimpleWine');
+  if(typeof text!=='string'||text.length<80||text.length>90000)throw Error('Скопируйте текст открытой карточки вина целиком');
+  return parseWineMarkdown(text,u.href);
 }
 export function partialSimpleWine(url){
   const u=new URL(url),slug=u.pathname.split('/').filter(Boolean).at(-1)||'',parts=slug.split('_');
@@ -50,13 +73,15 @@ export async function scrapeWine(url){
   try{const result=await getPage(u.href);return parseWineHtml(result.html,result.url)}
   catch(error){
     if(!(u.hostname==='simplewine.ru'||u.hostname.endsWith('.simplewine.ru')))throw error;
-    try{
-      const proxy='https://r.jina.ai/'+u.href;
-      const response=await fetch(proxy,{signal:AbortSignal.timeout(45000),headers:{accept:'text/plain','x-locale':'ru-RU',...(process.env.JINA_API_KEY?{authorization:'Bearer '+process.env.JINA_API_KEY}:{})}});
-      if(!response.ok)throw Error('Текстовый сервис недоступен');
-      const reader=response.body.getReader();let chunks=[],size=0;
-      while(true){const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>3_000_000){await reader.cancel();throw Error('Страница слишком большая')}chunks.push(value)}
-      const markdown=Buffer.concat(chunks).toString('utf8');return parseWineMarkdown(markdown,u.href);
-    }catch{return partialSimpleWine(u.href)}
+    const proxy='https://r.jina.ai/'+u.href;
+    let fallbackError;
+    for(const read of [
+      ()=>getReaderText(proxy),
+      async()=>{const response=await fetch(proxy,{signal:AbortSignal.timeout(45000),headers:{accept:'text/plain','x-locale':'ru-RU',...(process.env.JINA_API_KEY?{authorization:'Bearer '+process.env.JINA_API_KEY}:{})}});if(!response.ok)throw Error('Текстовый сервис ответил кодом '+response.status);const text=await response.text();if(text.length>3_000_000)throw Error('Ответ текстового сервиса слишком большой');return text}
+    ]){
+      try{return parseWineMarkdown(await read(),u.href)}catch(e){fallbackError=e}
+    }
+    console.warn('Не удалось прочитать SimpleWine:',error.message,';',fallbackError?.message);
+    return {...partialSimpleWine(u.href),_partialReason:fallbackError?.message||error.message};
   }
 }

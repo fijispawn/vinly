@@ -58,6 +58,15 @@ test('SimpleWine: карточка берёт актуальный винтаж 
 test('SimpleWine: страница защиты не считается винной карточкой',()=>{
  assert.throws(()=>parseWineHtml('<title>Just a moment...</title><h1>Checking your browser</h1>','https://simplewine.ru/catalog/product/loco_cimbali_orange_2023_075_155938/'),/не дал прочитать/);
 });
+test('SimpleWine: текст, скопированный из браузера, заполняет карточку',()=>{
+ const copied='Каталог\nВино Рислинг, Сикоры, 2024\nАртикул: 159699\nСтрана, регион:\nРоссия, Кубань,\nСахар:\nсухое,\nВиноград:\nрислинг 100%,\nПроизводитель:\nСикоры,\nКрепость:\n13%,\nОбъем:\n0.75 л,\nВино:\nбелое,\n2024 г. — 1 718 ₽ в наличии\nДегустационные характеристики\nАромат яблока и лайма.';
+ const w=parseWineMarkdown(copied,'https://simplewine.ru/catalog/product/risling_2024_075_159699/');
+ assert.equal(w.name,'Вино Рислинг, Сикоры, 2024');
+ assert.equal(w.producer,'Сикоры');
+ assert.equal(w.price,1718);
+ assert.equal(w.region,'Кубань');
+ assert.equal(w.description,'Аромат яблока и лайма.');
+});
 test('одинаковое надёжно распознанное вино объединяется между играми',()=>{
  const wine={id:'w',number:1,name:'Chardonnay',producer:'Luigi Bosca',vintage:'2025',sourceUrl:'https://example.com/product/1',price:2000};
  const answer={ratings:{w:{acidity:3,aroma:4,body:2,impression:5}},vote:'w'};
