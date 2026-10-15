@@ -27,4 +27,10 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: python3 test/integration.py
-      - run: docker build -t vinly-ci .
+      - name: Build the release archive used by deployment
+        run: |
+          source deploy/release-files.sh
+          mkdir -p "$RUNNER_TEMP/vinly-release"
+          tar -czf "$RUNNER_TEMP/vinly-release.tar.gz" "${release_files[@]}"
+          tar -xzf "$RUNNER_TEMP/vinly-release.tar.gz" -C "$RUNNER_TEMP/vinly-release"
+          docker build -t vinly-ci "$RUNNER_TEMP/vinly-release"

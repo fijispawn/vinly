@@ -13,7 +13,7 @@ if [[ $(git branch --show-current) != main || -n $(git status --porcelain) ]]; t
   exit 1
 fi
 
-release_files=(Dockerfile .dockerignore package.json package-lock.json app components public backend.js logic.js scraper.js clipboard-image.js)
+source deploy/release-files.sh
 if [[ -n $(find "${release_files[@]}" -type l -print) ]]; then
   echo 'Release contains a symlink; refusing to deploy' >&2
   exit 1
