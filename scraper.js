@@ -82,6 +82,7 @@ export async function scrapeWine(url){
       try{return parseWineMarkdown(await read(),u.href)}catch(e){fallbackError=e}
     }
     console.warn('Не удалось прочитать SimpleWine:',error.message,';',fallbackError?.message);
-    return {...partialSimpleWine(u.href),_partialReason:fallbackError?.message||error.message};
+    const reason=fallbackError?.message||error.message;
+    return {...partialSimpleWine(u.href),_partialReason:/кодом 451/.test(reason)?'Текстовый сервис недоступен с сервера приложения':reason};
   }
 }
