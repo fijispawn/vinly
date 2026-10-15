@@ -67,6 +67,13 @@ test('SimpleWine: текст, скопированный из браузера, 
  assert.equal(w.region,'Кубань');
  assert.equal(w.description,'Аромат яблока и лайма.');
 });
+test('SimpleWine: меню перед карточкой не подменяет тип вина',()=>{
+ const copied='Каталог\nВино\nШампанское и игристое\nВино Рислинг, Сикоры, 2024\n4.5\n429 оценок\nВино:\nбелое\nСтрана, регион:\nРоссия, Кубань\nПроизводитель:\nСикоры\n2024 г. — 1 718 ₽ в наличии';
+ const w=parseWineMarkdown(copied,'https://simplewine.ru/catalog/product/risling_2024_075_159699/');
+ assert.equal(w.style,'белое');
+ assert.equal(w.externalRating,'4.5');
+ assert.equal(w.externalRatingCount,'429');
+});
 test('одинаковое надёжно распознанное вино объединяется между играми',()=>{
  const wine={id:'w',number:1,name:'Chardonnay',producer:'Luigi Bosca',vintage:'2025',sourceUrl:'https://example.com/product/1',price:2000};
  const answer={ratings:{w:{acidity:3,aroma:4,body:2,impression:5}},vote:'w'};

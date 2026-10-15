@@ -41,15 +41,15 @@ export function parseWineHtml(html,url){const p=ldProducts(html),title=decode(p.
   return wine;
 }
 export function parseWineMarkdown(markdown,url){
-  const lines=markdown.split(/\r?\n/).map(x=>x.trim()),title=lines.find(x=>/^#?\s*Вино\s+.+\b(?:19|20)\d{2}\b/.test(x))?.replace(/^#?\s*Вино\s+/,''),name=title?`Вино ${title}`:'';
+  const lines=markdown.split(/\r?\n/).map(x=>x.trim()),titleIndex=lines.findIndex(x=>/^#?\s*Вино\s+.+\b(?:19|20)\d{2}\b/.test(x)),title=lines[titleIndex]?.replace(/^#?\s*Вино\s+/,''),name=title?`Вино ${title}`:'';
   if(!name)throw Error('Не удалось распознать карточку вина');
-  const following=label=>{const i=lines.findIndex(x=>x===label||x===label+':');if(i<0)return '';for(let j=i+1;j<Math.min(i+7,lines.length);j++){const s=lines[j];if(!s)continue;return s.replace(/\[([^\]]+)\]\([^)]*\)/g,'$1').replace(/,$/,'').trim()}return ''};
+  const following=label=>{const i=lines.findIndex((x,index)=>index>titleIndex&&(x===label||x===label+':'));if(i<0)return '';for(let j=i+1;j<Math.min(i+7,lines.length);j++){const s=lines[j];if(!s)continue;return s.replace(/\[([^\]]+)\]\([^)]*\)/g,'$1').replace(/,$/,'').trim()}return ''};
   const countryRegion=following('Страна, регион').split(/,\s*/).filter(Boolean);
   const image=lines.find(x=>/^!\[Image[^\]]*Вино/.test(x))?.match(/\]\((https:\/\/[^)]+)\)/)?.[1]||'';
   const vintage=name.match(/\b(?:19|20)\d{2}\b/)?.[0];
   const vintagePrice=vintage&&markdown.match(new RegExp(vintage+'\\s*г\\.\\s*[—–-]\\s*([\\d\\s\\u00a0]+)\\s*₽'))?.[1];
   const price=Number((vintagePrice||lines.find(x=>/^\d[\d\s\u00a0]*\s*₽$/.test(x))||'').replace(/[^\d]/g,''))||null;
-  const rating=markdown.match(/\[(\d(?:[.,]\d)?)\s+(\d+)\s+оценок/);
+  const rating=markdown.match(/\[?(\d(?:[.,]\d)?)\s+(\d+)\s+оценок/)||markdown.match(/(?:^|\n)(\d(?:[.,]\d)?)\s*\n\s*(\d+)\s+оценок/m);
   const description=following('Дегустационные характеристики');
   return {sourceUrl:url,sourceName:'simplewine.ru',sourceDate:new Date().toISOString().slice(0,10),name,producer:following('Производитель'),vintage:following('Год')||name.match(/\b(?:19|20)\d{2}\b/)?.[0]||'',image,price,currency:price?'RUB':'',country:countryRegion[0]||'',region:countryRegion[1]||'',grape:following('Виноград'),style:following('Вино'),alcohol:following('Крепость'),volume:following('Объем'),sugar:following('Сахар'),productAcidity:'',externalRating:rating?.[1]||'',externalRatingSource:rating?'SimpleWine':'',externalRatingScale:rating?'5':'',externalRatingCount:rating?.[2]||'',description,hostNote:''};
 }
