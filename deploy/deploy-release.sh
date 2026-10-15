@@ -21,7 +21,7 @@ if [[ $(realpath "$app_dir") != "$app_dir" || -L $backup_dir || -L $app_dir/.inc
   echo 'Unexpected deployment directory or symlink' >&2
   exit 1
 fi
-for path in Dockerfile .dockerignore package.json package-lock.json backend.js logic.js scraper.js app components public deploy; do
+for path in Dockerfile .dockerignore package.json package-lock.json backend.js logic.js scraper.js clipboard-image.js app components public deploy; do
   if [[ -L $app_dir/$path ]]; then
     echo "Refusing to write through symlink: $path" >&2
     exit 1
@@ -59,7 +59,7 @@ source_backup=$backup_dir/source-$stamp-$revision.tar.gz
 echo 'Backing up Vinly data and source files...'
 "${compose[@]}" exec -T app tar -czf - -C /app/data . < /dev/null > "$data_backup.tmp"
 mv "$data_backup.tmp" "$data_backup"
-tar -czf "$source_backup" Dockerfile .dockerignore package.json package-lock.json app components public backend.js logic.js scraper.js
+tar -czf "$source_backup" Dockerfile .dockerignore package.json package-lock.json app components public backend.js logic.js scraper.js clipboard-image.js
 
 echo 'Building and starting Vinly app...'
 tar --no-same-owner -xzf "$archive" -C "$app_dir"
