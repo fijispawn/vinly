@@ -6,7 +6,7 @@ RUN npm ci --omit=dev
 COPY app ./app
 COPY components ./components
 COPY public ./public
-COPY backend.js logic.js scraper.js clipboard-image.js ./
+COPY backend.js logic.js scraper.js clipboard-image.js world-map.js wine-regions.js ./
 RUN mkdir -p /app/data && npm run build && chown -R node:node /app
 USER node
 EXPOSE 3000
