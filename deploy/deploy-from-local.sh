@@ -23,8 +23,13 @@ revision=$(git rev-parse HEAD)
 compose_hash=$(shasum -a 256 deploy/compose.prod.yaml | awk '{print $1}')
 temp_dir=$(mktemp -d)
 trap 'rm -rf "$temp_dir"' EXIT
+echo "Preparing Vinly release $revision..."
 tar -czf "$temp_dir/release.tar.gz" "${release_files[@]}"
 
-ssh -o StrictHostKeyChecking=yes "$target" "test \"\$(realpath /opt/wine-brackets)\" = /opt/wine-brackets && test ! -L /opt/wine-brackets/.incoming && test ! -L /opt/wine-brackets/.incoming/$revision.tar.gz && install -d -m 700 /opt/wine-brackets/.incoming"
-scp -o StrictHostKeyChecking=yes "$temp_dir/release.tar.gz" "$target:/opt/wine-brackets/.incoming/$revision.tar.gz"
-ssh -o StrictHostKeyChecking=yes "$target" "bash -s -- $revision $compose_hash" < deploy/deploy-release.sh
+ssh_options=(-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes)
+echo 'Checking Vinly directory on server...'
+ssh "${ssh_options[@]}" "$target" "test \"\$(realpath /opt/wine-brackets)\" = /opt/wine-brackets && test ! -L /opt/wine-brackets/.incoming && test ! -L /opt/wine-brackets/.incoming/$revision.tar.gz && install -d -m 700 /opt/wine-brackets/.incoming"
+echo 'Uploading Vinly release...'
+scp "${ssh_options[@]}" "$temp_dir/release.tar.gz" "$target:/opt/wine-brackets/.incoming/$revision.tar.gz"
+echo 'Starting guarded deployment...'
+ssh "${ssh_options[@]}" "$target" "bash -s -- $revision $compose_hash" < deploy/deploy-release.sh

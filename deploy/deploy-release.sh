@@ -56,14 +56,17 @@ fi
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 data_backup=$backup_dir/data-$stamp-$revision.tar.gz
 source_backup=$backup_dir/source-$stamp-$revision.tar.gz
-"${compose[@]}" exec -T app tar -czf - -C /app/data . > "$data_backup.tmp"
+echo 'Backing up Vinly data and source files...'
+"${compose[@]}" exec -T app tar -czf - -C /app/data . < /dev/null > "$data_backup.tmp"
 mv "$data_backup.tmp" "$data_backup"
 tar -czf "$source_backup" Dockerfile .dockerignore package.json package-lock.json app components public backend.js logic.js scraper.js
 
+echo 'Building and starting Vinly app...'
 tar --no-same-owner -xzf "$archive" -C "$app_dir"
 rm -f "$archive"
-"${compose[@]}" up --build -d --no-deps app
+"${compose[@]}" up --build -d --no-deps app < /dev/null
 
+echo 'Waiting for Vinly health check...'
 healthy=false
 for _ in {1..30}; do
   container_id=$("${compose[@]}" ps -q app)
@@ -77,7 +80,7 @@ done
 if [[ $healthy != true ]]; then
   echo 'Deployment is unhealthy; restoring previous source' >&2
   tar --no-same-owner -xzf "$source_backup" -C "$app_dir"
-  "${compose[@]}" up --build -d --no-deps app
+  "${compose[@]}" up --build -d --no-deps app < /dev/null
   exit 1
 fi
 
